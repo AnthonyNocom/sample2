@@ -887,6 +887,9 @@
     <ClInclude Include="Dependencies\include\glm\vector_relational.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Model3D.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Dependencies\lib-vc2022\glfw3.dll" />

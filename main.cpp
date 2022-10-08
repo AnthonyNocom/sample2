@@ -5,119 +5,100 @@
 #include "tiny_obj_loader.h"
 #include <string>
 #include <iostream>
+// include our model3D
+#include "Model3D.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-float mod_z = 0;
-float mod_x = 0;
-float mod_y = 0;
-float scale_mod = 1.0f;
-float rot_mod_x = 0;
-float rot_mod_y = 0;
-float rot_mod_axis_x = 0; // rotate on x (0) or y (1) axis
-float rot_mod_axis_y = 1; // rotate on x (0) or y (1) axis
-
-void Key_Callback(GLFWwindow* window,
-    int key,
-    int scancode,
-    int action,
-    int mods) {
-    if (key == GLFW_KEY_D &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        mod_x += 0.2f;
-    }
-
-    if (key == GLFW_KEY_A &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        mod_x -= 0.2f;
-    }
-
-    if (key == GLFW_KEY_W &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        mod_y -= 0.2f;
-    }
-
-    if (key == GLFW_KEY_S &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        mod_y += 0.2f;
-    }
-
-    // Scale
-    if (key == GLFW_KEY_E &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        scale_mod += 1.0f;
-    }
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     
-    if (key == GLFW_KEY_Q &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        scale_mod -= 1.0f;
-    }
+// camera
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::normalize(glm::vec3(0, 1.f, 0));
 
-    // Rotation
-    if (key == GLFW_KEY_RIGHT &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        rot_mod_axis_x = 0;
-        rot_mod_axis_y = 1;
-        rot_mod_x += 30.0f;
-    }
+bool firstMouse = true;
+float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
+float pitch = 0.0f;
+float lastX = 800.0f / 2.0;
+float lastY = 600.0 / 2.0;
+float fov = 45.0f;
 
-    if (key == GLFW_KEY_LEFT &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        rot_mod_axis_x = 0;
-        rot_mod_axis_y = 1;
-        rot_mod_x -= 30.0f;
-    }
+// timing
+float deltaTime = 0.0f;	// time between current frame and last frame
+float lastFrame = 0.0f;
 
-    if (key == GLFW_KEY_UP &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        rot_mod_axis_x = 1;
-        rot_mod_axis_y = 0;
-        rot_mod_y += 30.0f;
-    }
+// Array of Model3D objects
+std::vector<Model3D> models;
 
-    if (key == GLFW_KEY_DOWN &&
-        (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        rot_mod_axis_x = 1; 
-        rot_mod_axis_y = 0;
-        rot_mod_y -= 30.0f;
+// Global mesh_indices and matrices
+std::vector<GLuint> mesh_indices;
+glm::mat4 projection_matrix;
+glm::mat4 view_matrix;
+
+// for camera movement, taken from learnopengl.com
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// Taken from learnopengl.com
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow* window, unsigned int transformLoc)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    float cameraSpeed = static_cast<float>(2.5 * deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (glfwGetTime() >= 3) {
+            models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
+            glfwSetTime(0.0);
+        }
     }
-}
+    // this prevents the user from modifying cameraPos (pressing any movement key) while spawning an object, which leads to spawn location bugs
+    // consequently, this stops the user from moving if the user presses space
+    else { 
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            cameraPos += cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            cameraPos -= cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    }
+};
 
 int main(void)
 {
     GLFWwindow* window;
 
-    /* Initialize the library */
     if (!glfwInit())
         return -1;
 
     float screenWidth = 600.f;
     float screenHeight = 600.f;
 
-    /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(screenWidth, screenHeight, "Sample", NULL, NULL);
+    window = glfwCreateWindow(screenWidth, screenHeight, "Programming Exercise 1", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
         return -1;
     }
 
-    /* Make the window's context current */
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
-    glfwSetKeyCallback(window, Key_Callback);
-
-    // Vertex Shader
+    // call mouse_callback for every frame
+    glfwSetCursorPosCallback(window, mouse_callback);
+    // tell GLFW to capture our mouse
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
     std::string vertS = vertBuff.str();
     const char* v = vertS.c_str();
 
-    // Fragment Shader BLUE
     std::fstream fragSrc("Shaders/sample.frag");
     std::stringstream fragBuff;
     fragBuff << fragSrc.rdbuf();
@@ -149,7 +130,8 @@ int main(void)
 
     GLuint VAO, VBO, EBO;
 
-    std::string path = "3D/bunny.obj";
+    // 3D Model "Gun 3D Model" from gabrielferreirasilveira21 uploaded on free3d.com https://free3d.com/3d-model/gun-54829.html
+    std::string path = "3D/Gun_obj/Gun.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -161,8 +143,6 @@ int main(void)
         &warning,
         &error,
         path.c_str());
-
-    std::vector<GLuint> mesh_indices;
 
     for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
         mesh_indices.push_back(shapes[0].mesh.indices[i].vertex_index);
@@ -201,117 +181,61 @@ int main(void)
     glBindVertexArray(0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     
-    glm::mat3 identity_matrix3 = glm::mat3(1.0f);
-    glm::mat4 identity_matrix4 = glm::mat4(1.0f);
-
-    float x, y, z;
-    x = y = z = 0.0f;
-    glm::mat4 translation =
-        glm::translate(identity_matrix4,
-            glm::vec3(x, y, z)
-        );
-
-    float scale_x, scale_y, scale_z;
-    scale_x = scale_y = scale_z = 1.0f;
-    glm::mat4 scale =
-        glm::scale(identity_matrix4,
-            glm::vec3(scale_x, scale_y, scale_z)
-        );
-
-    float rot_x, rot_y, rot_z;
-    rot_x = rot_y = rot_z = 0;
-    rot_y = 1.0f;
-    float theta_x = 0.0f;
-    float theta_y = 0.0f;
-    glm::mat4 rotation =
-        glm::rotate(identity_matrix4,
-            glm::radians(theta_x),
-            glm::normalize(glm::vec3(rot_x, rot_y, rot_z))
-        );
-
-    z = -5.0f;
-
-    
-    glm::mat4 projection_matrix = glm::perspective(
+    projection_matrix = glm::perspective(
         glm::radians(60.0f),
         screenHeight / screenWidth,
         0.1f,
         100.f
     );
 
-    /* Loop until the user closes the window */
+    // append first model 
+    models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
+
     while (!glfwWindowShouldClose(window))
     {
-        /* Render here */
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // -------------------------------------
-        glm::vec3 cameraPos = glm::vec3(0, 0, 10.f);
-        glm::mat4 cameraPosMatrix = glm::translate(glm::mat4(1.0f), cameraPos * -1.f);
+        // per frame-time logic
+        float currentFrame = static_cast<float>(glfwGetTime());
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
 
-        glm::vec3 WorldUp = glm::normalize(glm::vec3(0, 1.f, 0));
-        glm::vec3 CameraCenter = glm::vec3(0, mod_y, 0);
-
-        glm::vec3 F = CameraCenter - cameraPos;
-        F = glm::normalize(F);
-
-        glm::vec3 R = glm::cross(F, WorldUp);
-        glm::vec3 U = glm::cross(R, F);
-
-        glm::mat4 cameraOrientationMatrix = glm::mat4(1.0f);
-
-        //1st Row
-        cameraOrientationMatrix[0][0] = R.x;
-        cameraOrientationMatrix[1][0] = R.y;
-        cameraOrientationMatrix[2][0] = R.z;
-
-        //2nd Row
-        cameraOrientationMatrix[0][1] = U.x;
-        cameraOrientationMatrix[1][1] = U.y;
-        cameraOrientationMatrix[2][1] = U.z;
-
-        //3rd Row
-        cameraOrientationMatrix[0][2] = -F.x;
-        cameraOrientationMatrix[1][2] = -F.y;
-        cameraOrientationMatrix[2][2] = -F.z;
-
-        //glm::mat4 viewMatrix = cameraOrientationMatrix * cameraPosMatrix;
-        // ------------------------------------
-        // this is equal to the lines of code encased above
-        glm::mat4 viewMatrix = glm::lookAt(cameraPos, CameraCenter, WorldUp);
-
-        // blue bunny
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
-        transformation_matrix = glm::translate(transformation_matrix,
-            glm::vec3(0.6, 0.6, 0));
-        transformation_matrix = glm::rotate(transformation_matrix,
-            glm::radians(-90.f),
-            glm::vec3(0, 1, rot_z));
+        
+        // point the view matrix
+        view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
+        // transform matrix
         unsigned int transformLoc = glGetUniformLocation(shaderProg, "transform");
         glUniformMatrix4fv(transformLoc,
             1,
             GL_FALSE,
             glm::value_ptr(transformation_matrix));
-       
+
+        // projection matrix
         unsigned int projectionLoc = glGetUniformLocation(shaderProg, "projection");
         glUniformMatrix4fv(projectionLoc,
             1,
             GL_FALSE,
             glm::value_ptr(projection_matrix));
 
+        // view matrix
         unsigned int viewLoc = glGetUniformLocation(shaderProg, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(viewMatrix));
-
-
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
+   
+        // use program
         glUseProgram(shaderProg);
 
+        // bind VAO
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES,
-            mesh_indices.size(),
-            GL_UNSIGNED_INT,
-            0);
 
+        // input
+        processInput(window, transformLoc);
+
+        // Draw all models
+        for (auto i : models) {
+            i.draw(transformLoc);
+        }
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
 
@@ -323,4 +247,43 @@ int main(void)
     glDeleteBuffers(1, &EBO);
     glfwTerminate();
     return 0;
+}
+
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    lastX = xpos;
+    lastY = ypos;
+
+    float sensitivity = 0.1f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
 }

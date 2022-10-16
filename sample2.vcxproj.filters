@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="glad.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Dependencies\include\glm\detail\glm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -888,6 +888,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Model3D.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

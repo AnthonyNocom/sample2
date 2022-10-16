@@ -12,6 +12,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     
 // camera
@@ -78,7 +81,7 @@ int main(void)
     float screenWidth = 600.f;
     float screenHeight = 600.f;
 
-    window = glfwCreateWindow(screenWidth, screenHeight, "Programming Exercise 1", NULL, NULL);
+    window = glfwCreateWindow(screenWidth, screenHeight, "GRAPHIX 07", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -89,9 +92,9 @@ int main(void)
     gladLoadGL();
 
     // call mouse_callback for every frame
-    glfwSetCursorPosCallback(window, mouse_callback);
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetCursorPosCallback(window, mouse_callback);
+    //// tell GLFW to capture our mouse
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
@@ -128,10 +131,57 @@ int main(void)
         0,1,2
     };
 
-    GLuint VAO, VBO, EBO;
+    // GRAPHIX 07
+    GLfloat UV[]{
+        0.f, 1.f,
+        0.f, 0.f,
+        1.f, 1.f,
+        1.f, 0.f,
+        1.f, 1.f,
+        1.f, 0.f,
+        0.f, 1.f,
+        0.f, 0.f
+    };
 
-    // 3D Model "Gun 3D Model" from gabrielferreirasilveira21 uploaded on free3d.com https://free3d.com/3d-model/gun-54829.html
-    std::string path = "3D/Gun_obj/Gun.obj";
+    // GRAPHIX 07
+    // ------------------------------
+    stbi_set_flip_vertically_on_load(true);
+    int img_width, img_height, color_channels;
+    unsigned char* tex_bytes = stbi_load("3D/ayaya.png",
+        &img_width,
+        &img_height,
+        &color_channels, 
+        0);
+
+    // reference to texture
+    GLuint texture;
+    //generate reference
+    glGenTextures(1, &texture);
+    // set texture we are working on to texture 0 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // assign the loaded texture to the reference
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,  // texture 0
+        GL_RGBA, // target color format
+        img_width,
+        img_height,
+        0,
+        GL_RGBA,    // color format
+        GL_UNSIGNED_BYTE,
+        tex_bytes   // loaded texture in bytes
+    );
+
+    // generate mipmaps to the current texture
+    glGenerateMipmap(GL_TEXTURE_2D);
+    // free up the loaded bytes
+    stbi_image_free(tex_bytes);
+    glEnable(GL_DEPTH_TEST);
+    // ------------------------------
+
+    std::string path = "3D/myCube.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -148,8 +198,11 @@ int main(void)
         mesh_indices.push_back(shapes[0].mesh.indices[i].vertex_index);
     }
 
+    GLuint VAO, VBO, EBO, VBO_UV;
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    glGenBuffers(1, &VBO_UV);
     glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
@@ -161,13 +214,6 @@ int main(void)
         &attributes.vertices[0],
         GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-        sizeof(GLuint) * mesh_indices.size(),
-        mesh_indices.data(),
-        GL_STATIC_DRAW);
-
     glVertexAttribPointer(0,
         3,
         GL_FLOAT,
@@ -175,7 +221,32 @@ int main(void)
         3 * sizeof(GL_FLOAT),
         (void*)0);
 
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+        sizeof(GLuint) * mesh_indices.size(),
+        mesh_indices.data(),
+        GL_STATIC_DRAW);
+    // GRAPHIX 07
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_UV);
+    glBufferData(GL_ARRAY_BUFFER,
+        // size of float * length of array
+        sizeof(GLfloat) * (sizeof(UV) / sizeof(UV[0])),
+        &UV[0],
+        GL_STATIC_DRAW); // or GL_DYNAMIC_DRAW
+
+    glVertexAttribPointer(
+        2,  //Tex Coords / UV = index 2
+        2,  //U and V
+        GL_FLOAT,
+        GL_FALSE,
+        2 * sizeof(GL_FLOAT),
+        (void*)0
+    );
+
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(2);
+
+    
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -188,12 +259,40 @@ int main(void)
         100.f
     );
 
+    glm::mat3 identity_matrix3 = glm::mat3(1.0f);
+    glm::mat4 identity_matrix4 = glm::mat4(1.0f);
+
+    float x, y, z;
+    x = y = z = 0.0f;
+    glm::mat4 translation =
+        glm::translate(identity_matrix4,
+            glm::vec3(x, y, z)
+        );
+
+    float scale_x, scale_y, scale_z;
+    scale_x = scale_y = scale_z = .2f;
+    glm::mat4 scale =
+        glm::scale(identity_matrix4,
+            glm::vec3(scale_x, scale_y, scale_z)
+        );
+
+    float rot_x, rot_y, rot_z;
+    rot_x = rot_y = rot_z = 0;
+    rot_y = 1.0f;
+    float theta_x = 0.0f;
+    float theta_y = 0.0f;
+    glm::mat4 rotation =
+        glm::rotate(identity_matrix4,
+            glm::radians(theta_x),
+            glm::normalize(glm::vec3(rot_x, rot_y, rot_z))
+        );
+
     // append first model 
     models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
 
     while (!glfwWindowShouldClose(window))
     {
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // per frame-time logic
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -201,45 +300,55 @@ int main(void)
         lastFrame = currentFrame;
 
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
-        
+        // rotate and scale cube
+        transformation_matrix = glm::translate(transformation_matrix,
+            glm::vec3(x, y, z));
+        transformation_matrix = glm::scale(transformation_matrix,
+            glm::vec3(scale_x, scale_y, scale_z));
+        transformation_matrix = glm::rotate(identity_matrix4,
+            glm::radians(theta_x),
+            glm::normalize(glm::vec3(rot_x, rot_y, rot_z))
+        );
+        theta_x += 0.1;
+
         // point the view matrix
         view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-        // transform matrix
         unsigned int transformLoc = glGetUniformLocation(shaderProg, "transform");
         glUniformMatrix4fv(transformLoc,
             1,
             GL_FALSE,
             glm::value_ptr(transformation_matrix));
 
-        // projection matrix
+        // bind texture
+        GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glUniform1i(tex0Address, 0);
+
         unsigned int projectionLoc = glGetUniformLocation(shaderProg, "projection");
         glUniformMatrix4fv(projectionLoc,
             1,
             GL_FALSE,
             glm::value_ptr(projection_matrix));
 
-        // view matrix
         unsigned int viewLoc = glGetUniformLocation(shaderProg, "view");
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
    
-        // use program
         glUseProgram(shaderProg);
 
-        // bind VAO
         glBindVertexArray(VAO);
 
-        // input
-        processInput(window, transformLoc);
+        glDrawElements(GL_TRIANGLES, mesh_indices.size(), GL_UNSIGNED_INT, 0);
 
-        // Draw all models
-        for (auto i : models) {
-            i.draw(transformLoc);
-        }
-        /* Swap front and back buffers */
+        // input
+        //processInput(window, transformLoc);
+
+        //// Draw all models
+        //for (auto i : models) {
+        //    i.draw(transformLoc);
+        //}
         glfwSwapBuffers(window);
 
-        /* Poll for and process events */
         glfwPollEvents();
     }
     glDeleteVertexArrays(1, &VAO);

@@ -18,7 +18,8 @@
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     
 // camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 3.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 90.0f); // setting this higher than 90.0f would make parts of the hilt not render since it's too far
+// scale wont work and i have not figured out yet why
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::normalize(glm::vec3(0, 1.f, 0));
 
@@ -181,7 +182,7 @@ int main(void)
     glEnable(GL_DEPTH_TEST);
     // ------------------------------
 
-    std::string path = "3D/myCube.obj";
+    std::string path = "3D/djSword.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -198,18 +199,116 @@ int main(void)
         mesh_indices.push_back(shapes[0].mesh.indices[i].vertex_index);
     }
 
+    // loop through all the vertex indices
+    std::vector <GLfloat> fullVertexData;
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
+        // assign the index data for easy access
+        tinyobj::index_t vData = shapes[0].mesh.indices[i];
+
+        // push the X position of the vertex
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3)]
+        );
+
+        // push the Y position of the vertex
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3) + 1]
+        );
+
+        // push the Z position of the vertex
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3) + 2]
+        );
+
+        // ASSIGNMENT 3 - VERTEX ATTRIBUTES
+        // ---------------------------------------------------
+        // normal
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3)]
+        );
+
+        // normal
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 1]
+        );
+
+        // normal
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 2]
+        );
+        // ---------------------------------------------------
+        
+        // push the U of the tex coords
+        fullVertexData.push_back(
+            attributes.texcoords[(vData.texcoord_index * 2)]
+        );
+
+        // push the V of the tex coords
+        fullVertexData.push_back(
+            attributes.texcoords[(vData.texcoord_index * 2) + 1]
+        );
+    }
+
     GLuint VAO, VBO, EBO, VBO_UV;
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &VBO_UV);
-    glGenBuffers(1, &EBO);
+    //glGenBuffers(1, &VBO_UV); // remove code graphix 08
+    //glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-    glBufferData(GL_ARRAY_BUFFER,
+    // add in our new array of vertex data in the VBO
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        //size of the whole array in bytes
+        sizeof(GLfloat)* fullVertexData.size(),
+        //data of array
+        fullVertexData.data(),
+        GL_DYNAMIC_DRAW
+    );
+
+    // add in how to get the position data from our array
+    glVertexAttribPointer(
+        0, // index 0 is vertex position
+        3, // position is 3 floats (X,Y,Z)
+        GL_FLOAT, // data type of array
+        GL_FALSE,
+        // our vertex data has 5 floats in it
+        // (X,Y,Z,U,V)
+        8 * sizeof(float), // size of vertex data in bytes ----- it is now 8
+        (void*)0
+    );
+
+    GLintptr normPtr = 3 * sizeof(float); // index 4, 5, 6
+    GLintptr uvPtr = 6 * sizeof(float); // UV now starts at 6? index 7, 8
+
+    // ASSIGNMENT 3 - VERTEX ATTRIBUTES
+    // ----------------------------------
+    // insert the normals data
+    glVertexAttribPointer(
+        1, // index 1 is normals
+        3, // normal is 3 floats
+        GL_FLOAT, // data type
+        GL_FALSE,
+        8 * sizeof(float),
+        // add in the offset
+        (void*)normPtr
+    );
+    // ----------------------------------
+    // add in how to get the uv data from our array
+    glVertexAttribPointer(
+        2, // index 2 is tex coordinates / UV
+        2, // UV is 2 floats (U,V)
+        GL_FLOAT,
+        GL_FALSE,
+        8 * sizeof(float),
+        // add in the offset
+        (void*)uvPtr
+    );
+    /*glBufferData(GL_ARRAY_BUFFER,
         sizeof(GL_FLOAT) * attributes.vertices.size(),
         &attributes.vertices[0],
         GL_STATIC_DRAW);
@@ -219,31 +318,32 @@ int main(void)
         GL_FLOAT,
         GL_FALSE,
         3 * sizeof(GL_FLOAT),
-        (void*)0);
+        (void*)0);*/
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-        sizeof(GLuint) * mesh_indices.size(),
-        mesh_indices.data(),
-        GL_STATIC_DRAW);
-    // GRAPHIX 07
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_UV);
-    glBufferData(GL_ARRAY_BUFFER,
-        // size of float * length of array
-        sizeof(GLfloat) * (sizeof(UV) / sizeof(UV[0])),
-        &UV[0],
-        GL_STATIC_DRAW); // or GL_DYNAMIC_DRAW
+    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    //glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+    //    sizeof(GLuint) * mesh_indices.size(),
+    //    mesh_indices.data(),
+    //    GL_STATIC_DRAW);
+    //// GRAPHIX 07
+    //glBindBuffer(GL_ARRAY_BUFFER, VBO_UV);
+    //glBufferData(GL_ARRAY_BUFFER,
+    //    // size of float * length of array
+    //    sizeof(GLfloat) * (sizeof(UV) / sizeof(UV[0])),
+    //    &UV[0],
+    //    GL_STATIC_DRAW); // or GL_DYNAMIC_DRAW
 
-    glVertexAttribPointer(
-        2,  //Tex Coords / UV = index 2
-        2,  //U and V
-        GL_FLOAT,
-        GL_FALSE,
-        2 * sizeof(GL_FLOAT),
-        (void*)0
-    );
+    //glVertexAttribPointer(
+    //    2,  //Tex Coords / UV = index 2
+    //    2,  //U and V
+    //    GL_FLOAT,
+    //    GL_FALSE,
+    //    2 * sizeof(GL_FLOAT),
+    //    (void*)0
+    //);
 
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1); // normals
     glEnableVertexAttribArray(2);
 
     
@@ -270,7 +370,7 @@ int main(void)
         );
 
     float scale_x, scale_y, scale_z;
-    scale_x = scale_y = scale_z = .2f;
+    scale_x = scale_y = scale_z = 0.2f;
     glm::mat4 scale =
         glm::scale(identity_matrix4,
             glm::vec3(scale_x, scale_y, scale_z)
@@ -338,10 +438,15 @@ int main(void)
 
         glBindVertexArray(VAO);
 
-        glDrawElements(GL_TRIANGLES, mesh_indices.size(), GL_UNSIGNED_INT, 0);
+        // Instead of using the EBO, we render using the vertex array
+        //glDrawElements(GL_TRIANGLES, mesh_indices.size(), GL_UNSIGNED_INT, 0);
+
+        // since our vertex data has 5 floats in it
+        // we divide the array size by 5 to get the number of vertices
+        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8); // instead of 5, now it needs 8
 
         // input
-        //processInput(window, transformLoc);
+        processInput(window, transformLoc);
 
         //// Draw all models
         //for (auto i : models) {

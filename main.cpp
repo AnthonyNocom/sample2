@@ -82,7 +82,7 @@ int main(void)
     float screenWidth = 600.f;
     float screenHeight = 600.f;
 
-    window = glfwCreateWindow(screenWidth, screenHeight, "GRAPHIX 07", NULL, NULL);
+    window = glfwCreateWindow(screenWidth, screenHeight, "GRAPHIX", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -388,7 +388,16 @@ int main(void)
         );
 
     // append first model 
-    models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
+    //models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
+
+    glm::vec3 lightPos = glm::vec3(-10, 3, 0);
+    glm::vec3 lightColor = glm::vec3(1, 1, 1);
+
+    float ambientStr = 0.1f;
+    glm::vec3 ambientColor = lightColor;
+
+    float specStr = 0.5f;
+    float specPhong = 16;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -424,6 +433,31 @@ int main(void)
         GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(tex0Address, 0);
+
+        // GRAPHIX 09
+        // get the address of the light position from the shader
+        GLuint lightAddress = glGetUniformLocation(shaderProg, "lightPos");
+        glUniform3fv(lightAddress, 1, glm::value_ptr(lightPos));
+
+        // get the address of the light color from the shader
+        GLuint lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
+        glUniform3fv(lightColorAddress, 1, glm::value_ptr(lightColor));
+
+        GLuint ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
+        glUniform1f(ambientStrAddress, ambientStr);
+
+        GLuint ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
+        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(ambientColor));
+
+        GLuint cameraPosAddress = glGetUniformLocation(shaderProg, "cameraPos");
+        glUniform3fv(cameraPosAddress, 1, glm::value_ptr(cameraPos));
+
+        GLuint specStrAddress = glGetUniformLocation(shaderProg, "specStr");
+        glUniform1f(specStrAddress, specStr);
+
+        GLuint specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
+        glUniform1f(specPhongAddress, specPhong);
+
 
         unsigned int projectionLoc = glGetUniformLocation(shaderProg, "projection");
         glUniformMatrix4fv(projectionLoc,

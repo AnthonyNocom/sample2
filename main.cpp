@@ -18,7 +18,7 @@
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     
 // camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 90.0f); // setting this higher than 90.0f would make parts of the hilt not render since it's too far
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 15.0f);
 // scale wont work and i have not figured out yet why
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::normalize(glm::vec3(0, 1.f, 0));
@@ -148,7 +148,7 @@ int main(void)
     // ------------------------------
     stbi_set_flip_vertically_on_load(true);
     int img_width, img_height, color_channels;
-    unsigned char* tex_bytes = stbi_load("3D/ayaya.png",
+    unsigned char* tex_bytes = stbi_load("3D/partenza.jpg",
         &img_width,
         &img_height,
         &color_channels, 
@@ -166,11 +166,11 @@ int main(void)
     glTexImage2D(
         GL_TEXTURE_2D,
         0,  // texture 0
-        GL_RGBA, // target color format
+        GL_RGB, // target color format
         img_width,
         img_height,
         0,
-        GL_RGBA,    // color format
+        GL_RGB,    // color format
         GL_UNSIGNED_BYTE,
         tex_bytes   // loaded texture in bytes
     );
@@ -364,13 +364,14 @@ int main(void)
 
     float x, y, z;
     x = y = z = 0.0f;
+    
     glm::mat4 translation =
         glm::translate(identity_matrix4,
             glm::vec3(x, y, z)
         );
 
     float scale_x, scale_y, scale_z;
-    scale_x = scale_y = scale_z = 0.2f;
+    scale_x = scale_y = scale_z = 0.13f;
     glm::mat4 scale =
         glm::scale(identity_matrix4,
             glm::vec3(scale_x, scale_y, scale_z)
@@ -393,7 +394,7 @@ int main(void)
     glm::vec3 lightPos = glm::vec3(-10, 3, 0);
     glm::vec3 lightColor = glm::vec3(1, 1, 1);
 
-    float ambientStr = 0.1f;
+    float ambientStr = 0.5f;
     glm::vec3 ambientColor = lightColor;
 
     float specStr = 0.5f;
@@ -414,7 +415,7 @@ int main(void)
             glm::vec3(x, y, z));
         transformation_matrix = glm::scale(transformation_matrix,
             glm::vec3(scale_x, scale_y, scale_z));
-        transformation_matrix = glm::rotate(identity_matrix4,
+        transformation_matrix = glm::rotate(transformation_matrix,
             glm::radians(theta_x),
             glm::normalize(glm::vec3(rot_x, rot_y, rot_z))
         );

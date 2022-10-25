@@ -62,6 +62,65 @@ void processInput(GLFWwindow* window, unsigned int transformLoc)
     }
 };
 
+std::vector <GLfloat> load(const char* filename)
+{
+    std::string path = filename;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> material;
+    std::string warning, error;
+    tinyobj::attrib_t attributes;
+
+    bool success = tinyobj::LoadObj(&attributes,
+        &shapes,
+        &material,
+        &warning,
+        &error,
+        path.c_str());
+
+    /*for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
+        mesh_indices.push_back(shapes[0].mesh.indices[i].vertex_index);
+    }*/
+
+    // loop through all the vertex indices
+    std::vector <GLfloat> fullVertexData;
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
+        tinyobj::index_t vData = shapes[0].mesh.indices[i];
+
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3)]
+        );
+
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3) + 1]
+        );
+
+        fullVertexData.push_back(
+            attributes.vertices[(vData.vertex_index * 3) + 2]
+        );
+
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3)]
+        );
+
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 1]
+        );
+
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 2]
+        );
+
+        fullVertexData.push_back(
+            attributes.texcoords[(vData.texcoord_index * 2)]
+        );
+
+        fullVertexData.push_back(
+            attributes.texcoords[(vData.texcoord_index * 2) + 1]
+        );
+    }
+    return fullVertexData;
+}
+
 int main(void)
 {
     GLFWwindow* window;
@@ -136,10 +195,21 @@ int main(void)
     // ------------------------------
     stbi_set_flip_vertically_on_load(true);
     int img_width, img_height, color_channels;
-    unsigned char* tex_bytes = stbi_load("3D/Grass001_1K_Color.jpg",
+    unsigned char* tex_bytes[2];
+    tex_bytes[0] = stbi_load("3D/Grass001_1K_Color.jpg",
         &img_width,
         &img_height,
         &color_channels, 
+        0);
+    tex_bytes[1] = stbi_load("3D/Marble016_1K_Color.jpg",
+        &img_width,
+        &img_height,
+        &color_channels,
+        0);
+    tex_bytes[2] = stbi_load("3D/Wood066_1K_Color.jpg",
+        &img_width,
+        &img_height,
+        &color_channels,
         0);
 
     // reference to texture
@@ -160,70 +230,17 @@ int main(void)
         0,
         GL_RGB,    // color format
         GL_UNSIGNED_BYTE,
-        tex_bytes   // loaded texture in bytes
+        tex_bytes[0]   // loaded texture in bytes
     );
 
     // generate mipmaps to the current texture
     glGenerateMipmap(GL_TEXTURE_2D);
     // free up the loaded bytes
-    stbi_image_free(tex_bytes);
+    stbi_image_free(tex_bytes[0]);
     glEnable(GL_DEPTH_TEST);
     // ------------------------------
 
-    std::string path = "3D/djSword.obj";
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> material;
-    std::string warning, error;
-    tinyobj::attrib_t attributes;
-
-    bool success = tinyobj::LoadObj(&attributes,
-        &shapes,
-        &material,
-        &warning,
-        &error,
-        path.c_str());
-
-    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
-        mesh_indices.push_back(shapes[0].mesh.indices[i].vertex_index);
-    }
-
-    // loop through all the vertex indices
-    std::vector <GLfloat> fullVertexData;
-    for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
-        tinyobj::index_t vData = shapes[0].mesh.indices[i];
-
-        fullVertexData.push_back(
-            attributes.vertices[(vData.vertex_index * 3)]
-        );
-
-        fullVertexData.push_back(
-            attributes.vertices[(vData.vertex_index * 3) + 1]
-        );
-
-        fullVertexData.push_back(
-            attributes.vertices[(vData.vertex_index * 3) + 2]
-        );
-
-        fullVertexData.push_back(
-            attributes.normals[(vData.normal_index * 3)]
-        );
-
-        fullVertexData.push_back(
-            attributes.normals[(vData.normal_index * 3) + 1]
-        );
-
-        fullVertexData.push_back(
-            attributes.normals[(vData.normal_index * 3) + 2]
-        );
-        
-        fullVertexData.push_back(
-            attributes.texcoords[(vData.texcoord_index * 2)]
-        );
-
-        fullVertexData.push_back(
-            attributes.texcoords[(vData.texcoord_index * 2) + 1]
-        );
-    }
+    std::vector<GLfloat> fullVertexData = load("3D/djSword.obj");
 
     GLuint VAO, VBO, EBO, VBO_UV;
 
@@ -447,12 +464,8 @@ int main(void)
 
         // Instead of using the EBO, we render using the vertex array
         //glDrawElements(GL_TRIANGLES, mesh_indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8);
 
-        // since our vertex data has 5 floats in it
-        // we divide the array size by 5 to get the number of vertices
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8); // instead of 5, now it needs 8
-
-        // input
         processInput(window, transformLoc);
 
         //// Draw all models

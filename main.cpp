@@ -5,7 +5,7 @@
 #include "tiny_obj_loader.h"
 #include <string>
 #include <iostream>
-// include our model3D
+
 #include "Model3D.h"
 
 #include <glm/glm.hpp>
@@ -17,35 +17,27 @@
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
     
-// camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 15.0f);
-// scale wont work and i have not figured out yet why
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 10.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -10.0f); // cameraCenter = cameraPos + cameraFront = 10.0f + (-10.0f) = 0,0,0
 glm::vec3 cameraUp = glm::normalize(glm::vec3(0, 1.f, 0));
 
 bool firstMouse = true;
-float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
+float yaw = -90.0f;
 float pitch = 0.0f;
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
 float fov = 45.0f;
 
-// timing
-float deltaTime = 0.0f;	// time between current frame and last frame
+float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-// Array of Model3D objects
 std::vector<Model3D> models;
 
-// Global mesh_indices and matrices
 std::vector<GLuint> mesh_indices;
 glm::mat4 projection_matrix;
 glm::mat4 view_matrix;
 
 // for camera movement, taken from learnopengl.com
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// Taken from learnopengl.com
-// ---------------------------------------------------------------------------------------------------------
 void processInput(GLFWwindow* window, unsigned int transformLoc)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -58,8 +50,6 @@ void processInput(GLFWwindow* window, unsigned int transformLoc)
             glfwSetTime(0.0);
         }
     }
-    // this prevents the user from modifying cameraPos (pressing any movement key) while spawning an object, which leads to spawn location bugs
-    // consequently, this stops the user from moving if the user presses space
     else { 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             cameraPos += cameraSpeed * cameraFront;
@@ -79,10 +69,10 @@ int main(void)
     if (!glfwInit())
         return -1;
 
-    float screenWidth = 600.f;
-    float screenHeight = 600.f;
+    float screenWidth = 750.f;
+    float screenHeight = 750.f;
 
-    window = glfwCreateWindow(screenWidth, screenHeight, "GRAPHIX", NULL, NULL);
+    window = glfwCreateWindow(screenWidth, screenHeight, "Anthony Nocom", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -92,9 +82,7 @@ int main(void)
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
-    // call mouse_callback for every frame
     //glfwSetCursorPosCallback(window, mouse_callback);
-    //// tell GLFW to capture our mouse
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     std::fstream vertSrc("Shaders/sample.vert");
@@ -148,7 +136,7 @@ int main(void)
     // ------------------------------
     stbi_set_flip_vertically_on_load(true);
     int img_width, img_height, color_channels;
-    unsigned char* tex_bytes = stbi_load("3D/partenza.jpg",
+    unsigned char* tex_bytes = stbi_load("3D/Grass001_1K_Color.jpg",
         &img_width,
         &img_height,
         &color_channels, 
@@ -202,48 +190,36 @@ int main(void)
     // loop through all the vertex indices
     std::vector <GLfloat> fullVertexData;
     for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
-        // assign the index data for easy access
         tinyobj::index_t vData = shapes[0].mesh.indices[i];
 
-        // push the X position of the vertex
         fullVertexData.push_back(
             attributes.vertices[(vData.vertex_index * 3)]
         );
 
-        // push the Y position of the vertex
         fullVertexData.push_back(
             attributes.vertices[(vData.vertex_index * 3) + 1]
         );
 
-        // push the Z position of the vertex
         fullVertexData.push_back(
             attributes.vertices[(vData.vertex_index * 3) + 2]
         );
 
-        // ASSIGNMENT 3 - VERTEX ATTRIBUTES
-        // ---------------------------------------------------
-        // normal
         fullVertexData.push_back(
             attributes.normals[(vData.normal_index * 3)]
         );
 
-        // normal
         fullVertexData.push_back(
             attributes.normals[(vData.normal_index * 3) + 1]
         );
 
-        // normal
         fullVertexData.push_back(
             attributes.normals[(vData.normal_index * 3) + 2]
         );
-        // ---------------------------------------------------
         
-        // push the U of the tex coords
         fullVertexData.push_back(
             attributes.texcoords[(vData.texcoord_index * 2)]
         );
 
-        // push the V of the tex coords
         fullVertexData.push_back(
             attributes.texcoords[(vData.texcoord_index * 2) + 1]
         );
@@ -343,7 +319,7 @@ int main(void)
     //);
 
     glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1); // normals
+    glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
 
     
@@ -364,14 +340,13 @@ int main(void)
 
     float x, y, z;
     x = y = z = 0.0f;
-    
     glm::mat4 translation =
         glm::translate(identity_matrix4,
             glm::vec3(x, y, z)
         );
 
     float scale_x, scale_y, scale_z;
-    scale_x = scale_y = scale_z = 0.13f;
+    scale_x = scale_y = scale_z = 0.10f;
     glm::mat4 scale =
         glm::scale(identity_matrix4,
             glm::vec3(scale_x, scale_y, scale_z)
@@ -391,7 +366,7 @@ int main(void)
     // append first model 
     //models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
 
-    glm::vec3 lightPos = glm::vec3(-10, 3, 0);
+    glm::vec3 lightPos = glm::vec3(10, 10, 0);
     glm::vec3 lightColor = glm::vec3(1, 1, 1);
 
     float ambientStr = 0.5f;
@@ -404,13 +379,11 @@ int main(void)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // per frame-time logic
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
-        // rotate and scale cube
         transformation_matrix = glm::translate(transformation_matrix,
             glm::vec3(x, y, z));
         transformation_matrix = glm::scale(transformation_matrix,
@@ -421,7 +394,6 @@ int main(void)
         );
         theta_x += 0.1;
 
-        // point the view matrix
         view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
         unsigned int transformLoc = glGetUniformLocation(shaderProg, "transform");

@@ -36,8 +36,7 @@ void main()
 
     float distance = length(lightPos - fragPos);
 
-    float attenuation = 1.0 / (1.0f +  0.027f * distance + .0028f * (distance * distance));
-    
+    float attenuation = 1.0 / (1.0f +  0.0014f * distance + .000007f * (distance * distance));
     specColor *= attenuation;
     diffuse *= attenuation;
     ambientCol *= attenuation;

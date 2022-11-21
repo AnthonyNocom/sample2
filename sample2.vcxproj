@@ -567,6 +567,8 @@
     <None Include="Dependencies\lib-vc2022\glfw3.dll" />
     <None Include="Shaders\sample.frag" />
     <None Include="Shaders\sample.vert" />
+    <None Include="Shaders\skybox.frag" />
+    <None Include="Shaders\skybox.vert" />
     <None Include="x64\Release\sample2.exe" />
     <None Include="x64\Release\sample2.exe.recipe" />
     <None Include="x64\Release\sample2.iobj" />

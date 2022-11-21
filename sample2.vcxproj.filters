@@ -1327,6 +1327,8 @@
     <None Include="Dependencies\include\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="Shaders\skybox.frag" />
+    <None Include="Shaders\skybox.vert" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="Dependencies\lib-vc2022\glfw3.lib" />

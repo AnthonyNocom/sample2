@@ -7,6 +7,8 @@
 #include <iostream>
 
 #include "Model3D.h"
+#include "camera.h" // camera
+#include "light.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -16,21 +18,46 @@
 #include "stb_image.h"
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
-void processInput(GLFWwindow* window, unsigned int transformLoc);
+void processInput(GLFWwindow* window);
 
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0, 10.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -10.0f); // cameraCenter = cameraPos + cameraFront = 10.0f + (-10.0f) = 0,0,0
-glm::vec3 cameraUp = glm::normalize(glm::vec3(0, 1.f, 0));
+// settings
+float screenWidth = 750.f;
+float screenHeight = 750.f;
+float speed = 2.5f;
 
+// object rotation
+float theta_x = 0.0f;
+float theta_y = 0.0f;
+float theta_z = 0.0f;
+float theta_x2 = 0.0f;
+float theta_y2 = 0.0f;
+float theta_z2 = 0.0f;
+
+// object being controlled (main or light source)
+bool objectControl = 0;
+// camera (perspective or ortho)
+bool cameraControl = 0;
+
+
+
+// camera
+OrthoCamera orthoCam(glm::vec3(0.0f, 10.f, 10.0f));
+PerspectiveCamera persCam(glm::vec3(0.0f, 0.0f, 10.0f));
+
+float lastX = screenWidth / 2.0f;
+float lastY = screenHeight / 2.0f;
 bool firstMouse = true;
-float yaw = -90.0f;
-float pitch = 0.0f;
-float lastX = 800.0f / 2.0;
-float lastY = 600.0 / 2.0;
-float fov = 45.0f;
 
+glm::vec4 vec(1.0f, 1.0f, 1.0f, 1.0f);
+
+// timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+// lighting
+Light light;
+float pointLightStr = 0.5f;
+float dirLightStr;
 
 std::vector<Model3D> models;
 
@@ -44,9 +71,6 @@ int main(void)
     if (!glfwInit())
         return -1;
 
-    float screenWidth = 750.f;
-    float screenHeight = 750.f;
-
     window = glfwCreateWindow(screenWidth, screenHeight, "Anthony Nocom", NULL, NULL);
     if (!window)
     {
@@ -58,8 +82,9 @@ int main(void)
     gladLoadGL();
 
     //glfwSetCursorPosCallback(window, mouse_callback);
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
+    // shader main
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
@@ -85,12 +110,13 @@ int main(void)
     glAttachShader(shaderProg, fragShader);
     glLinkProgram(shaderProg);
 
+
     stbi_set_flip_vertically_on_load(true);
 
     // Texture 1
     int img_width, img_height, color_channels;
 
-    unsigned char* tex_bytes = stbi_load("3D/Grass001_1K_Color.jpg",
+    unsigned char* tex_bytes = stbi_load("3D/Marble016_1K_Color.jpg",
         &img_width,
         &img_height,
         &color_channels,
@@ -115,63 +141,8 @@ int main(void)
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(tex_bytes);
 
-    // texture 2
-    int img_width2, img_height2, color_channels2;
-
-    unsigned char* tex_bytes2 = stbi_load("3D/Marble016_1K_Color.jpg",
-        &img_width,
-        &img_height,
-        &color_channels,
-        0);
-    GLuint texture2;
-    glGenTextures(1, &texture2);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture2);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGB,
-        img_width,
-        img_height,
-        0,
-        GL_RGB,
-        GL_UNSIGNED_BYTE,
-        tex_bytes2
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(tex_bytes2);
-
-    // texture 3
-    int img_width3, img_height3, color_channels3;
-
-    unsigned char* tex_bytes3 = stbi_load("3D/Wood066_1K_Color.jpg",
-        &img_width3,
-        &img_height3,
-        &color_channels3,
-        0);
-    GLuint texture3;
-    glGenTextures(1, &texture3);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture3);
-
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGB,
-        img_width3,
-        img_height3,
-        0,
-        GL_RGB,
-        GL_UNSIGNED_BYTE,
-        tex_bytes3
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(tex_bytes3);
-    glEnable(GL_DEPTH_TEST);
-
     // object 1, UV
-    std::string path = "3D/teacup.obj";
+    std::string path = "3D/Objects/Gun.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -202,6 +173,16 @@ int main(void)
             attributes.vertices[(vData.vertex_index * 3) + 2]
         );
         
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3)]
+        );
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 1]
+        );
+        fullVertexData.push_back(
+            attributes.normals[(vData.normal_index * 3) + 2]
+        );
+
         fullVertexData.push_back(
             attributes.texcoords[(vData.texcoord_index * 2)]
         );
@@ -253,56 +234,6 @@ int main(void)
         );
     }
 
-    // object 3, normal + UV
-    std::string path3 = "3D/spoon.obj";
-    std::vector<tinyobj::shape_t> shapes3;
-    std::vector<tinyobj::material_t> material3;
-    std::string warning3, error3;
-    tinyobj::attrib_t attributes3;
-    bool success3 = tinyobj::LoadObj(&attributes3,
-        &shapes3,
-        &material3,
-        &warning3,
-        &error3,
-        path3.c_str());
-    std::vector<GLuint> mesh_indices3;
-    for (int i = 0; i < shapes3[0].mesh.indices.size(); i++) {
-        mesh_indices3.push_back(
-            shapes3[0].mesh.indices[i].vertex_index
-        );
-    }
-    std::vector <GLfloat> fullVertexData3;
-    for (int i = 0; i < shapes3[0].mesh.indices.size(); i++) {
-        tinyobj::index_t vData3 = shapes3[0].mesh.indices[i];
-
-        fullVertexData3.push_back(
-            attributes3.vertices[(vData3.vertex_index * 3)]
-        );
-        fullVertexData3.push_back(
-            attributes3.vertices[(vData3.vertex_index * 3) + 1]
-        );
-        fullVertexData3.push_back(
-            attributes3.vertices[(vData3.vertex_index * 3) + 2]
-        );
-
-        fullVertexData3.push_back(
-            attributes3.normals[(vData3.normal_index * 3)]
-        );
-        fullVertexData3.push_back(
-            attributes3.normals[(vData3.normal_index * 3) + 1]
-        );
-        fullVertexData3.push_back(
-            attributes3.normals[(vData3.normal_index * 3) + 2]
-        );
-
-        fullVertexData3.push_back(
-            attributes3.texcoords[(vData3.texcoord_index * 2)]
-        );
-        fullVertexData3.push_back(
-            attributes3.texcoords[(vData3.texcoord_index * 2) + 1]
-        );
-    }
-
     // VAO 1
     GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
@@ -320,19 +251,29 @@ int main(void)
         3,
         GL_FLOAT,
         GL_FALSE,
-        5 * sizeof(GL_FLOAT),
+        8 * sizeof(GL_FLOAT),
         (void*)0
     );
-    GLintptr uvPtr = 3 * sizeof(float);
+    GLintptr normPtr = 3 * sizeof(float);
+    glVertexAttribPointer(
+        1,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        8 * sizeof(GL_FLOAT),
+        (void*)normPtr
+    );
+    GLintptr uvPtr = 6 * sizeof(float);
     glVertexAttribPointer(
         2,
         2,
         GL_FLOAT,
         GL_FALSE,
-        5 * sizeof(GL_FLOAT),
+        8 * sizeof(GL_FLOAT),
         (void*)uvPtr
     );
     glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
@@ -371,50 +312,6 @@ int main(void)
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
-    // VAO 3
-    GLuint VAO3, VBO3;
-    glGenVertexArrays(1, &VAO3);
-    glGenBuffers(1, &VBO3);
-    glBindVertexArray(VAO3);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO3);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        sizeof(GL_FLOAT)* fullVertexData3.size(),
-        fullVertexData3.data(),
-        GL_STATIC_DRAW
-    );
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        8 * sizeof(GL_FLOAT),
-        (void*)0
-    );
-    GLintptr normPtr3 = 3 * sizeof(float);
-    glVertexAttribPointer(
-        1,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        8 * sizeof(GL_FLOAT),
-        (void*)normPtr3
-    );
-    GLintptr uvPtr3 = 6 * sizeof(float);
-    glVertexAttribPointer(
-        2,
-        2,
-        GL_FLOAT,
-        GL_FALSE,
-        8 * sizeof(GL_FLOAT),
-        (void*)uvPtr3
-    );
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
     
     projection_matrix = glm::perspective(
         glm::radians(60.0f),
@@ -435,17 +332,6 @@ int main(void)
     float rot_x, rot_y, rot_z;
     rot_x = rot_y = rot_z = 0;
     rot_y = 1.0f;
-    float theta_x = 0.0f;
-    float theta_y = 0.0f;
-
-    glm::vec3 lightPos = glm::vec3(10, 10, 0);
-    glm::vec3 lightColor = glm::vec3(1, 1, 1);
-
-    float ambientStr = 0.35f;
-    glm::vec3 ambientColor = lightColor;
-
-    float specStr = 0.5f;
-    float specPhong = 16.0f;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -455,38 +341,46 @@ int main(void)
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // object 1 teacup
+        processInput(window);
+
+        // object 1
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
-        view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        if (!cameraControl) {
+            view_matrix = persCam.lookAtOrigin();
+        }
+        else {
+            view_matrix = orthoCam.lookFromAbove();
+        }
 
         transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
-        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(2.0f, 2.0f, 2.0f));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(-60.0f), glm::normalize(glm::vec3(rot_x, rot_y, rot_z)));
+        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(5.0f, 5.0f, 5.0f));
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x), glm::normalize(glm::vec3(1, 0, 0))); // spin clockwise
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y), glm::normalize(glm::vec3(0, 1, 0)));
+        theta_y += 1.f;
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z), glm::normalize(glm::vec3(0, 0, 1)));
 
         GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(tex0Address, 0);
 
         GLuint lightAddress = glGetUniformLocation(shaderProg, "lightPos");
-        glUniform3fv(lightAddress, 1, glm::value_ptr(lightPos));
+        glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));
 
         GLuint lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
-        glUniform3fv(lightColorAddress, 1, glm::value_ptr(lightColor));
+        glUniform3fv(lightColorAddress, 1, glm::value_ptr(light.lightColor));
 
         GLuint ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
-        glUniform1f(ambientStrAddress, ambientStr);
+        glUniform1f(ambientStrAddress, light.ambientStr);
 
         GLuint ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
-        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(ambientColor));
+        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(light.ambientColor));
 
-        GLuint cameraPosAddress = glGetUniformLocation(shaderProg, "cameraPos");
-        glUniform3fv(cameraPosAddress, 1, glm::value_ptr(cameraPos));
-
+        
         GLuint specStrAddress = glGetUniformLocation(shaderProg, "specStr");
-        glUniform1f(specStrAddress, specStr);
+        glUniform1f(specStrAddress, light.specStr);
 
         GLuint specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
-        glUniform1f(specPhongAddress, specPhong);
+        glUniform1f(specPhongAddress, light.specPhong);
 
         unsigned int projectionLoc = glGetUniformLocation(shaderProg, "projection");
         glUniformMatrix4fv(projectionLoc,
@@ -507,40 +401,51 @@ int main(void)
 
         glBindVertexArray(VAO);
 
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 5);
+        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8);
 
         // object 2 sword
         transformation_matrix = glm::mat4(1.0f);
-        view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        if (!cameraControl) {
+            view_matrix = persCam.lookAtOrigin();
+        }
+        else {
+            view_matrix = orthoCam.lookFromAbove();
+        }
 
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(3.5f, -1.0f, 0.0f));
-        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(0.1f, 0.1f, 0.1f));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(-45.f), glm::normalize(glm::vec3(1, rot_y, rot_z)));
+        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x2), glm::normalize(glm::vec3(1, 0, 0)));
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y2), glm::normalize(glm::vec3(0, 1, 0)));
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z2), glm::normalize(glm::vec3(0, 0, 1)));
+        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(3.f, 3.0f, 0.0f));
+        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(0.1f, 0.05f, 0.1f));
 
-        tex0Address = glGetUniformLocation(shaderProg, "tex0");
-        glBindTexture(GL_TEXTURE_2D, texture2);
-        glUniform1i(tex0Address, 0);
+        vec = transformation_matrix * vec;
+        light.updateLightPos(glm::vec3(vec.x, vec.y, vec.z)); // light source
+        light.updateLightStr(pointLightStr);
 
         lightAddress = glGetUniformLocation(shaderProg, "lightPos");
-        glUniform3fv(lightAddress, 1, glm::value_ptr(lightPos));
+        glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));
 
         lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
-        glUniform3fv(lightColorAddress, 1, glm::value_ptr(lightColor));
+        glUniform3fv(lightColorAddress, 1, glm::value_ptr(light.lightColor));
 
         ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
-        glUniform1f(ambientStrAddress, ambientStr);
+        glUniform1f(ambientStrAddress, 1.f);
+
+        glm::vec3 lightColor;
+        if (!objectControl) {
+            lightColor = glm::vec3(0.0f, 1.0f, 0.0f);
+        }
+        else lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 
         ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
-        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(ambientColor));
-
-        cameraPosAddress = glGetUniformLocation(shaderProg, "cameraPos");
-        glUniform3fv(cameraPosAddress, 1, glm::value_ptr(cameraPos));
+        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(lightColor));
 
         specStrAddress = glGetUniformLocation(shaderProg, "specStr");
-        glUniform1f(specStrAddress, specStr);
+        glUniform1f(specStrAddress, light.specStr);
 
         specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
-        glUniform1f(specPhongAddress, specPhong);
+        glUniform1f(specPhongAddress, light.specPhong);
 
         projectionLoc = glGetUniformLocation(shaderProg, "projection");
         glUniformMatrix4fv(projectionLoc,
@@ -562,60 +467,6 @@ int main(void)
         glBindVertexArray(VAO2);
 
         glDrawArrays(GL_TRIANGLES, 0, fullVertexData2.size() / 6);
-
-        // object 3 spoon
-        transformation_matrix = glm::mat4(1.0f);
-        view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(-2.75f, 2.0f, 0.0f));
-        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(2.0f, 2.0f, 2.0f));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(-45.0f), glm::normalize(glm::vec3(1, rot_y, rot_z)));
-
-        tex0Address = glGetUniformLocation(shaderProg, "tex0");
-        glBindTexture(GL_TEXTURE_2D, texture3);
-        glUniform1i(tex0Address, 0);
-
-        lightAddress = glGetUniformLocation(shaderProg, "lightPos");
-        glUniform3fv(lightAddress, 1, glm::value_ptr(lightPos));
-
-        lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
-        glUniform3fv(lightColorAddress, 1, glm::value_ptr(lightColor));
-
-        ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
-        glUniform1f(ambientStrAddress, ambientStr);
-
-        ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
-        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(ambientColor));
-
-        cameraPosAddress = glGetUniformLocation(shaderProg, "cameraPos");
-        glUniform3fv(cameraPosAddress, 1, glm::value_ptr(cameraPos));
-
-        specStrAddress = glGetUniformLocation(shaderProg, "specStr");
-        glUniform1f(specStrAddress, specStr);
-
-        specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
-        glUniform1f(specPhongAddress, specPhong);
-
-        projectionLoc = glGetUniformLocation(shaderProg, "projection");
-        glUniformMatrix4fv(projectionLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(projection_matrix));
-
-        viewLoc = glGetUniformLocation(shaderProg, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
-
-        transformLoc = glGetUniformLocation(shaderProg, "transform");
-        glUniformMatrix4fv(transformLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(transformation_matrix));
-
-        glUseProgram(shaderProg);
-
-        glBindVertexArray(VAO3);
-
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData3.size() / 8);
         // processInput(window, transformLoc);
 
         glfwSwapBuffers(window);
@@ -627,11 +478,81 @@ int main(void)
     glDeleteBuffers(1, &VBO);
     glDeleteVertexArrays(1, &VAO2);
     glDeleteBuffers(1, &VBO2);
-    glDeleteVertexArrays(1, &VAO3);
-    glDeleteBuffers(1, &VBO3);
 
     glfwTerminate();
     return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+    {
+        if (objectControl == 0)
+        {
+            objectControl = 1;
+        }
+        else {
+            objectControl = 0;
+        }
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+    {
+        // perspective camera
+        cameraControl = 0;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+    {
+        // ortho camera
+        cameraControl = 1;
+    }
+
+    if (objectControl) { // light source 
+        light.lightColor = glm::vec3(1, 1, 1);
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            theta_x += speed;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            theta_x -= speed;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            theta_y += speed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            theta_y -= speed;
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+            theta_z += speed;
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+            theta_z -= speed;
+    }
+    else {
+        light.lightColor = glm::vec3(0, 1, 0);
+        
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            theta_x2 += speed;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            theta_x2 -= speed;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            theta_y2 += speed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            theta_y2 -= speed;
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+            theta_z2 += speed;
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+            theta_z2 -= speed;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        pointLightStr += .05f;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        pointLightStr -= .05f;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        dirLightStr += .05f;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        dirLightStr -= .05f;
 }
 
 // glfw: whenever the mouse moves, this callback is called
@@ -650,51 +571,9 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 
     float xoffset = xpos - lastX;
     float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
     lastX = xpos;
     lastY = ypos;
 
-    float sensitivity = 0.1f; // change this value to your liking
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-
-    yaw += xoffset;
-    pitch += yoffset;
-
-    // make sure that when pitch is out of bounds, screen doesn't get flipped
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -89.0f)
-        pitch = -89.0f;
-
-    glm::vec3 front;
-    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    front.y = sin(glm::radians(pitch));
-    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(front);
+    persCam.ProcessMouseMovement(xoffset, yoffset);
 }
-
-
-// for camera movement, taken from learnopengl.com
-void processInput(GLFWwindow* window, unsigned int transformLoc)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-
-    float cameraSpeed = static_cast<float>(2.5 * deltaTime);
-    /*if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        if (glfwGetTime() >= 3) {
-            models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
-            glfwSetTime(0.0);
-        }
-    }
-    else {*/
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            cameraPos += cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            cameraPos -= cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-    //}
-};

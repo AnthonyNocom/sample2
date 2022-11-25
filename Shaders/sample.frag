@@ -1,7 +1,8 @@
 #version 330 core
-// POINT LIGHT ASSIGNMENT 04 - LIGHT TYPES
 
 uniform sampler2D tex0;
+
+uniform sampler2D norm_tex;
 
 uniform vec3 lightPos;
 uniform vec3 lightColor;
@@ -17,6 +18,8 @@ in vec2 texCoord;
 in vec3 normCoord;
 in vec3 fragPos;
 
+in mat3 TBN;
+
 out vec4 Fragcolor;
 
 void main()
@@ -28,7 +31,12 @@ void main()
         // below here is ignored
     }
 
-    vec3 normal = normalize(normCoord);
+    // gets rgb data of texture
+    vec3 normal = texture(norm_tex, texCoord).rgb;
+    // converts RGB -> XYZ; 0 == -1 ; 1 == 1
+    normal = normalize(normal * 2.0 - 1.0);
+    normal = normalize(TBN * normal);
+
     vec3 lightDir = normalize(lightPos - fragPos);
     float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
@@ -43,10 +51,10 @@ void main()
 
     float distance = length(lightPos - fragPos);
 
-    float attenuation = 1.0 / (1.0f +  0.0014f * distance + .000007f * (distance * distance));
-    specColor *= attenuation;
-    diffuse *= attenuation;
-    ambientCol *= attenuation;
+    //float attenuation = 1.0 / (1.0f +  0.0014f * distance + .000007f * (distance * distance));
+    //specColor *= attenuation;
+    //diffuse *= attenuation;
+    //ambientCol *= attenuation;
 
     Fragcolor = vec4(specColor + diffuse + ambientCol, 1.0) * texture(tex0, texCoord);
 }

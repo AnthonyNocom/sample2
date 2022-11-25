@@ -144,7 +144,7 @@ int main(void)
     // Texture 1
     int img_width, img_height, color_channels;
 
-    unsigned char* tex_bytes = stbi_load("3D/12/gradient.png",
+    unsigned char* tex_bytes = stbi_load("3D/13Mats/brickwall.jpg",
         &img_width,
         &img_height,
         &color_channels,
@@ -158,16 +158,44 @@ int main(void)
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGBA,    //yae uses alpha
+        GL_RGB,    //yae uses alpha
         img_width,
         img_height,
         0,
-        GL_RGBA,
+        GL_RGB,
         GL_UNSIGNED_BYTE,
         tex_bytes
     );
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(tex_bytes);
+
+    // Texture 2
+    int img_width2, img_height2, color_channels2;
+
+    unsigned char* tex_bytes2 = stbi_load("3D/13Mats/brickwall_normal.jpg",
+        &img_width2,
+        &img_height2,
+        &color_channels2,
+        0);
+
+    GLuint texture2;
+    glGenTextures(1, &texture2);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, texture2);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGB,    // no alpha for jpg
+        img_width2,
+        img_height2,
+        0,
+        GL_RGB,
+        GL_UNSIGNED_BYTE,
+        tex_bytes2
+    );
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(tex_bytes2);
 
     // object 1, UV
     std::string path = "3D/12/plane.obj";
@@ -181,12 +209,76 @@ int main(void)
         &warning,
         &error,
         path.c_str());
+
     std::vector<GLuint> mesh_indices;
     for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
         mesh_indices.push_back(
             shapes[0].mesh.indices[i].vertex_index
         );
     }
+
+    std::vector<glm::vec3> tangents;
+    std::vector<glm::vec3> bitangents;
+
+    for (int i = 0; i < shapes[0].mesh.indices.size(); i += 3) {
+        tinyobj::index_t vData1 = shapes[0].mesh.indices[i]; //vertex 1
+        tinyobj::index_t vData2 = shapes[0].mesh.indices[i+1]; // vert 2
+        tinyobj::index_t vData3 = shapes[0].mesh.indices[i+2]; // vert 3
+
+        // components of vertex 1, 2, 3
+        glm::vec3 v1 = glm::vec3(
+            attributes.vertices[vData1.vertex_index * 3],
+            attributes.vertices[vData1.vertex_index * 3 + 1],
+            attributes.vertices[vData1.vertex_index * 3 + 2]
+        );
+
+        glm::vec3 v2 = glm::vec3(
+            attributes.vertices[vData2.vertex_index * 3],
+            attributes.vertices[vData2.vertex_index * 3 + 1],
+            attributes.vertices[vData2.vertex_index * 3 + 2]
+        );
+
+        glm::vec3 v3 = glm::vec3(
+            attributes.vertices[vData3.vertex_index * 3],
+            attributes.vertices[vData3.vertex_index * 3 + 1],
+            attributes.vertices[vData3.vertex_index * 3 + 2]
+        );
+
+        // components of uv
+        glm::vec2 uv1 = glm::vec2(
+            attributes.texcoords[vData1.texcoord_index * 2],
+            attributes.texcoords[vData1.texcoord_index * 2 + 1]
+        );
+
+        glm::vec2 uv2 = glm::vec2(
+            attributes.texcoords[vData2.texcoord_index * 2],
+            attributes.texcoords[vData2.texcoord_index * 2 + 1]
+        );
+        glm::vec2 uv3 = glm::vec2(
+            attributes.texcoords[vData3.texcoord_index * 2],
+            attributes.texcoords[vData3.texcoord_index * 2 + 1]
+        );
+
+        glm::vec3 deltaPos1 = v2 - v1;
+        glm::vec3 deltaPos2 = v3 - v1;
+
+        glm::vec2 deltaUV1 = uv2 - uv1;
+        glm::vec2 deltaUV2 = uv3 - uv1;
+
+        float r = 1.f / ((deltaUV1.x * deltaUV2.y) - (deltaUV1.y * deltaUV2.x));
+
+        glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+        glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
+
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
+        tangents.push_back(tangent);
+
+        bitangents.push_back(bitangent);
+        bitangents.push_back(bitangent);
+        bitangents.push_back(bitangent);
+    }
+
     std::vector <GLfloat> fullVertexData;
     for (int i = 0; i < shapes[0].mesh.indices.size(); i++) {
         tinyobj::index_t vData = shapes[0].mesh.indices[i];
@@ -216,6 +308,26 @@ int main(void)
         );
         fullVertexData.push_back(
             attributes.texcoords[(vData.texcoord_index * 2) + 1]
+        );
+
+        fullVertexData.push_back(
+            tangents[i].x
+        );
+        fullVertexData.push_back(
+            tangents[i].y
+        );
+        fullVertexData.push_back(
+            tangents[i].z
+        );
+
+        fullVertexData.push_back(
+            bitangents[i].x
+        );
+        fullVertexData.push_back(
+            bitangents[i].y
+        );
+        fullVertexData.push_back(
+            bitangents[i].z
         );
     }
 
@@ -278,7 +390,7 @@ int main(void)
         3,
         GL_FLOAT,
         GL_FALSE,
-        8 * sizeof(GL_FLOAT),
+        14 * sizeof(GL_FLOAT),
         (void*)0
     );
     GLintptr normPtr = 3 * sizeof(float);
@@ -287,7 +399,7 @@ int main(void)
         3,
         GL_FLOAT,
         GL_FALSE,
-        8 * sizeof(GL_FLOAT),
+        14 * sizeof(GL_FLOAT),
         (void*)normPtr
     );
     GLintptr uvPtr = 6 * sizeof(float);
@@ -296,12 +408,35 @@ int main(void)
         2,
         GL_FLOAT,
         GL_FALSE,
-        8 * sizeof(GL_FLOAT),
+        14 * sizeof(GL_FLOAT),
         (void*)uvPtr
     );
+    GLintptr tangentPtr = 8 * sizeof(float);
+    glVertexAttribPointer(
+        3,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        14 * sizeof(GL_FLOAT),
+        (void*)tangentPtr
+    );
+    GLintptr bitangentPtr = 11 * sizeof(float);
+    glVertexAttribPointer(
+        4,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        14 * sizeof(GL_FLOAT),
+        (void*)bitangentPtr
+    );
+
+
+
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
+    glEnableVertexAttribArray(4);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     
@@ -396,13 +531,15 @@ int main(void)
     rot_x = rot_y = rot_z = 0;
     rot_z = 1.0f;
     theta_z = -90.f;
+
+
     while (!glfwWindowShouldClose(window))
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glEnable(GL_BLEND);
+        /*glEnable(GL_BLEND);
         glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_SUBTRACT);
+        glBlendEquation(GL_FUNC_SUBTRACT);*/
 
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -419,13 +556,13 @@ int main(void)
 
         // object 1
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
-        if (!cameraControl) {
+        /*if (!cameraControl) {
             view_matrix = persCam.lookAtOrigin();
         }
         else {
             view_matrix = orthoCam.lookFromAbove();
-        }
-
+        }*/
+        view_matrix = persCam.lookAtOrigin();
         // initialize skybox's view matrix
         glm::mat4 sky_view = glm::mat4(1.f);
         sky_view = glm::mat4(
@@ -450,16 +587,22 @@ int main(void)
 
         glUseProgram(shaderProg);
 
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
+        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, -5.0f));
         transformation_matrix = glm::scale(transformation_matrix, glm::vec3(5.0f, 5.0f, 5.0f));
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x), glm::normalize(glm::vec3(1, 0, 0))); // spin clockwise
-        
+        theta_x += 0.2f;
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y), glm::normalize(glm::vec3(0, 1, 0)));
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z), glm::normalize(glm::vec3(0, 0, 1)));
 
+        glActiveTexture(GL_TEXTURE0);
         GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(tex0Address, 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        GLuint tex1Address = glGetUniformLocation(shaderProg, "norm_tex");
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glUniform1i(tex1Address, 1);
 
         GLuint lightAddress = glGetUniformLocation(shaderProg, "lightPos");
         glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));

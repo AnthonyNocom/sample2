@@ -56,7 +56,7 @@ float lastFrame = 0.0f;
 
 // lighting
 Light light;
-float pointLightStr = 0.5f;
+float pointLightStr = 0.1f;
 float dirLightStr;
 
 std::vector<Model3D> models;
@@ -144,7 +144,7 @@ int main(void)
     // Texture 1
     int img_width, img_height, color_channels;
 
-    unsigned char* tex_bytes = stbi_load("3D/Marble016_1K_Color.jpg",
+    unsigned char* tex_bytes = stbi_load("3D/12/gradient.png",
         &img_width,
         &img_height,
         &color_channels,
@@ -158,11 +158,11 @@ int main(void)
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGB,
+        GL_RGBA,    //yae uses alpha
         img_width,
         img_height,
         0,
-        GL_RGB,
+        GL_RGBA,
         GL_UNSIGNED_BYTE,
         tex_bytes
     );
@@ -170,7 +170,7 @@ int main(void)
     stbi_image_free(tex_bytes);
 
     // object 1, UV
-    std::string path = "3D/Objects/Gun.obj";
+    std::string path = "3D/12/plane.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -216,49 +216,6 @@ int main(void)
         );
         fullVertexData.push_back(
             attributes.texcoords[(vData.texcoord_index * 2) + 1]
-        );
-    }
-
-    // object 2, normal
-    std::string path2 = "3D/djSword.obj";
-    std::vector<tinyobj::shape_t> shapes2;
-    std::vector<tinyobj::material_t> material2;
-    std::string warning2, error2;
-    tinyobj::attrib_t attributes2;
-    bool success2 = tinyobj::LoadObj(&attributes2,
-        &shapes2,
-        &material2,
-        &warning2,
-        &error2,
-        path2.c_str());
-    std::vector<GLuint> mesh_indices2;
-    for (int i = 0; i < shapes2[0].mesh.indices.size(); i++) {
-        mesh_indices2.push_back(
-            shapes2[0].mesh.indices[i].vertex_index
-        );
-    }
-    std::vector <GLfloat> fullVertexData2;
-    for (int i = 0; i < shapes2[0].mesh.indices.size(); i++) {
-        tinyobj::index_t vData2 = shapes2[0].mesh.indices[i];
-
-        fullVertexData2.push_back(
-            attributes2.vertices[(vData2.vertex_index * 3)]
-        );
-        fullVertexData2.push_back(
-            attributes2.vertices[(vData2.vertex_index * 3) + 1]
-        );
-        fullVertexData2.push_back(
-            attributes2.vertices[(vData2.vertex_index * 3) + 2]
-        );
-
-        fullVertexData2.push_back(
-            attributes2.normals[(vData2.normal_index * 3)]
-        );
-        fullVertexData2.push_back(
-            attributes2.normals[(vData2.normal_index * 3) + 1]
-        );
-        fullVertexData2.push_back(
-            attributes2.normals[(vData2.normal_index * 3) + 2]
         );
     }
 
@@ -347,41 +304,6 @@ int main(void)
     glEnableVertexAttribArray(2);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-
-    // VAO 2
-    GLuint VAO2, VBO2;
-    glGenVertexArrays(1, &VAO2);
-    glGenBuffers(1, &VBO2);
-    glBindVertexArray(VAO2);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO2);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        sizeof(GL_FLOAT)* fullVertexData2.size(),
-        fullVertexData2.data(),
-        GL_STATIC_DRAW
-    );
-    glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        6 * sizeof(GL_FLOAT),
-        (void*)0
-    );
-    GLintptr normPtr2 = 3 * sizeof(float);
-    glVertexAttribPointer(
-        1,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        6 * sizeof(GL_FLOAT),
-        (void*)normPtr2
-    );
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
     
     // skybox VAO VBO EBO
     unsigned int skyboxVAO, skyboxVBO, skyboxEBO;
@@ -468,21 +390,25 @@ int main(void)
     x = y = z = 0.0f;
 
     float scale_x, scale_y, scale_z;
-    scale_x = scale_y = scale_z = 0.10f;
+    scale_x = scale_y = scale_z = 5.f;
 
     float rot_x, rot_y, rot_z;
     rot_x = rot_y = rot_z = 0;
-    rot_y = 1.0f;
-
+    rot_z = 1.0f;
+    theta_z = -90.f;
     while (!glfwWindowShouldClose(window))
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_SRC_ALPHA);
+        glBlendEquation(GL_FUNC_SUBTRACT);
 
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        processInput(window);
+        //processInput(window);
 
         //disable depth mask
         glDepthMask(GL_FALSE);
@@ -527,8 +453,8 @@ int main(void)
         transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
         transformation_matrix = glm::scale(transformation_matrix, glm::vec3(5.0f, 5.0f, 5.0f));
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x), glm::normalize(glm::vec3(1, 0, 0))); // spin clockwise
+        
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y), glm::normalize(glm::vec3(0, 1, 0)));
-        theta_y += 1.f;
         transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z), glm::normalize(glm::vec3(0, 0, 1)));
 
         GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
@@ -575,70 +501,6 @@ int main(void)
 
         glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8);
 
-        // object 2 sword
-        transformation_matrix = glm::mat4(1.0f);
-        if (!cameraControl) {
-            view_matrix = persCam.lookAtOrigin();
-        }
-        else {
-            view_matrix = orthoCam.lookFromAbove();
-        }
-
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x2), glm::normalize(glm::vec3(1, 0, 0)));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y2), glm::normalize(glm::vec3(0, 1, 0)));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z2), glm::normalize(glm::vec3(0, 0, 1)));
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(3.f, 3.0f, 0.0f));
-        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(0.1f, 0.05f, 0.1f));
-
-        vec = transformation_matrix * vec;
-        light.updateLightPos(glm::vec3(vec.x, vec.y, vec.z)); // light source
-        light.updateLightStr(pointLightStr);
-
-        lightAddress = glGetUniformLocation(shaderProg, "lightPos");
-        glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));
-
-        lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
-        glUniform3fv(lightColorAddress, 1, glm::value_ptr(light.lightColor));
-
-        ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
-        glUniform1f(ambientStrAddress, 1.f);
-
-        glm::vec3 lightColor;
-        if (!objectControl) {
-            lightColor = glm::vec3(0.0f, 1.0f, 0.0f);
-        }
-        else lightColor = glm::vec3(1.0f, 1.0f, 1.0f);
-
-        ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
-        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(lightColor));
-
-        specStrAddress = glGetUniformLocation(shaderProg, "specStr");
-        glUniform1f(specStrAddress, light.specStr);
-
-        specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
-        glUniform1f(specPhongAddress, light.specPhong);
-
-        projectionLoc = glGetUniformLocation(shaderProg, "projection");
-        glUniformMatrix4fv(projectionLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(projection_matrix));
-
-        viewLoc = glGetUniformLocation(shaderProg, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
-
-        transformLoc = glGetUniformLocation(shaderProg, "transform");
-        glUniformMatrix4fv(transformLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(transformation_matrix));
-
-        glUseProgram(shaderProg);
-
-        glBindVertexArray(VAO2);
-
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData2.size() / 6);
         // processInput(window, transformLoc);
 
         glfwSwapBuffers(window);
@@ -648,8 +510,6 @@ int main(void)
     // delete buffers
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO2);
-    glDeleteBuffers(1, &VBO2);
 
     glfwTerminate();
     return 0;

@@ -21,6 +21,13 @@ out vec4 Fragcolor;
 
 void main()
 {
+    vec4 pixelColor = texture(tex0, texCoord);
+
+    if(pixelColor.a < 0.1) {
+        discard;
+        // below here is ignored
+    }
+
     vec3 normal = normalize(normCoord);
     vec3 lightDir = normalize(lightPos - fragPos);
     float diff = max(dot(normal, lightDir), 0.0);

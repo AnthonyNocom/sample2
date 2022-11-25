@@ -10,9 +10,9 @@
 #include <vector>
 
 // Default light values
-const glm::vec3 LIGHTPOS = glm::vec3(4, 11, -3);
+const glm::vec3 LIGHTPOS = glm::vec3(0, 30, 0);
 const glm::vec3 LIGHTCOLOR = glm::vec3(1, 1, 1);
-const float AMBIENTSTR = 0.35f;
+const float AMBIENTSTR = 0.75f;
 const float SPECSTR = 0.5f;
 const float SPECPHONG = 16.0f;
 

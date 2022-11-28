@@ -144,7 +144,7 @@ int main(void)
     // Texture 1
     int img_width, img_height, color_channels;
 
-    unsigned char* tex_bytes = stbi_load("3D/13Mats/brickwall.jpg",
+    unsigned char* tex_bytes = stbi_load("3D/Quiz_3/Models/brickwall.jpg",
         &img_width,
         &img_height,
         &color_channels,
@@ -158,7 +158,7 @@ int main(void)
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
-        GL_RGB,    //yae uses alpha
+        GL_RGB,    
         img_width,
         img_height,
         0,
@@ -172,7 +172,7 @@ int main(void)
     // Texture 2
     int img_width2, img_height2, color_channels2;
 
-    unsigned char* tex_bytes2 = stbi_load("3D/13Mats/brickwall_normal.jpg",
+    unsigned char* tex_bytes2 = stbi_load("3D/Quiz_3/Models/brickwall_normal.jpg",
         &img_width2,
         &img_height2,
         &color_channels2,
@@ -197,8 +197,36 @@ int main(void)
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(tex_bytes2);
 
+    // Texture Yae
+    int img_width3, img_height3, color_channels3;
+
+    unsigned char* tex_bytes3 = stbi_load("3D/Quiz_3/Models/yae.png",
+        &img_width3,
+        &img_height3,
+        &color_channels3,
+        0);
+
+    GLuint texture3;
+    glGenTextures(1, &texture3);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, texture3);
+
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,    //yae uses alpha
+        img_width3,
+        img_height3,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        tex_bytes3
+    );
+    glGenerateMipmap(GL_TEXTURE_2D);
+    stbi_image_free(tex_bytes3);
+
     // object 1, UV
-    std::string path = "3D/12/plane.obj";
+    std::string path = "3D/Quiz_3/Models/plane.obj";
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> material;
     std::string warning, error;
@@ -458,12 +486,12 @@ int main(void)
     glEnableVertexAttribArray(0);
 
     std::string facesSkybox[]{
-        "Skybox/rainbow_rt.png", //right
-        "Skybox/rainbow_lf.png", //left
-        "Skybox/rainbow_up.png", //up
-        "Skybox/rainbow_dn.png", //down
-        "Skybox/rainbow_ft.png", //front
-        "Skybox/rainbow_bk.png", //back
+        "Skybox/rainbow_rt.png",
+        "Skybox/rainbow_lf.png",
+        "Skybox/rainbow_up.png",
+        "Skybox/rainbow_dn.png",
+        "Skybox/rainbow_ft.png",
+        "Skybox/rainbow_bk.png",
     };
 
     // skybox tex
@@ -537,9 +565,8 @@ int main(void)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        /*glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_SRC_ALPHA);
-        glBlendEquation(GL_FUNC_SUBTRACT);*/
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // blend to remove transparent pixels in yae png and make 
 
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -547,21 +574,19 @@ int main(void)
 
         //processInput(window);
 
-        //disable depth mask
         glDepthMask(GL_FALSE);
-        //change depth function to <=
         glDepthFunc(GL_LEQUAL);
-        //use skybox shaders
         glUseProgram(skyboxShaderProg);
 
-        // object 1
         glm::mat4 transformation_matrix = glm::mat4(1.0f);
+
         /*if (!cameraControl) {
             view_matrix = persCam.lookAtOrigin();
         }
         else {
             view_matrix = orthoCam.lookFromAbove();
         }*/
+
         view_matrix = persCam.lookAtOrigin();
         // initialize skybox's view matrix
         glm::mat4 sky_view = glm::mat4(1.f);
@@ -603,6 +628,11 @@ int main(void)
         GLuint tex1Address = glGetUniformLocation(shaderProg, "norm_tex");
         glBindTexture(GL_TEXTURE_2D, texture2);
         glUniform1i(tex1Address, 1);
+
+        glActiveTexture(GL_TEXTURE2);
+        GLuint tex2Address = glGetUniformLocation(shaderProg, "tex2");
+        glBindTexture(GL_TEXTURE_2D, texture3);
+        glUniform1i(tex2Address, 2);
 
         GLuint lightAddress = glGetUniformLocation(shaderProg, "lightPos");
         glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));

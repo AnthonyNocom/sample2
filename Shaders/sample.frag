@@ -4,6 +4,8 @@ uniform sampler2D tex0;
 
 uniform sampler2D norm_tex;
 
+uniform sampler2D tex2; // for rendering yae.png onto the plane
+
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 
@@ -51,10 +53,12 @@ void main()
 
     float distance = length(lightPos - fragPos);
 
-    //float attenuation = 1.0 / (1.0f +  0.0014f * distance + .000007f * (distance * distance));
-    //specColor *= attenuation;
-    //diffuse *= attenuation;
-    //ambientCol *= attenuation;
+    float attenuation = 1.0f / (1.0f +  0.0014f * distance + .000007f * (distance * distance));
+    specColor *= attenuation;
+    diffuse *= attenuation;
+    ambientCol *= attenuation;
 
-    Fragcolor = vec4(specColor + diffuse + ambientCol, 1.0) * texture(tex0, texCoord);
+    vec4 brick_wall = vec4(1.0f, 1.0f, 1.0f, 0.6f) * texture(tex0, texCoord); // we make the brick wall texture 0.6 opacity by changing alpha 
+    vec4 mixColor = mix(brick_wall, texture(tex2, texCoord), texture(tex2, texCoord).a); // mix the transparent brick wall with yae.png based on alpha of yae.png
+    Fragcolor = vec4(specColor + diffuse + ambientCol, 1.0) * mixColor;
 }

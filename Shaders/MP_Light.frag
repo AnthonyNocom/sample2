@@ -48,6 +48,8 @@ in vec3 fragPos;
 in vec3 normCoord;
 in vec2 texCoord;
 
+in mat3 TBN;
+
 uniform vec3 viewPos;
 uniform DirLight dirLight;
 uniform PointLight pointLights[NR_POINT_LIGHTS];

@@ -83,6 +83,8 @@ int main(void)
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
+    stbi_set_flip_vertically_on_load(true);
+
     Shader lightingShader("Shaders/sample.vert", "Shaders/MP_Light.frag");
 
     // shader skybox
@@ -432,7 +434,7 @@ int main(void)
         stbi_set_flip_vertically_on_load(false);
         //load image as usual
         unsigned char* data = stbi_load(facesSkybox[i].c_str(), &w, &h, &skyCChannel, 0);
-
+        
         if (data) {
             glTexImage2D(
                 //cubemap face address start at positive_X (Right)
@@ -568,7 +570,7 @@ int main(void)
 
         glBindVertexArray(VAO);
 
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8);
+        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 14);
 
         processInput(window);
 

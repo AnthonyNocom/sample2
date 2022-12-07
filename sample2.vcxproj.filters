@@ -896,6 +896,9 @@
     <ClInclude Include="camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shader_m.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="light.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -1342,5 +1345,6 @@
   <ItemGroup>
     <Text Include="x64\Release\sample2.log" />
     <Text Include="x64\Release\sample2.vcxproj.FileListAbsolute.txt" />
+    <Text Include="Shaders\MP_Light.frag" />
   </ItemGroup>
 </Project>

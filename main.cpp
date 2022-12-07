@@ -9,6 +9,7 @@
 #include "Model3D.h"
 #include "camera.h" // camera
 #include "light.h"
+#include "shader_m.h" // source: learnopengl "multiple lights"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -82,16 +83,17 @@ int main(void)
     gladLoadGL();
 
     //glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
-    // shader main
-    std::fstream vertSrc("Shaders/sample.vert");
+    Shader lightingShader("Shaders/sample.vert", "Shaders/MP_Light.frag");
+    
+    /*std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
     std::string vertS = vertBuff.str();
     const char* v = vertS.c_str();
 
-    std::fstream fragSrc("Shaders/sample.frag");
+    std::fstream fragSrc("Shaders/MP_Light.frag");
     std::stringstream fragBuff;
     fragBuff << fragSrc.rdbuf();
     std::string fragS = fragBuff.str();
@@ -108,9 +110,9 @@ int main(void)
     GLuint shaderProg = glCreateProgram();
     glAttachShader(shaderProg, vertexShader);
     glAttachShader(shaderProg, fragShader);
-    glLinkProgram(shaderProg);
+    glLinkProgram(shaderProg);*/
 
-    stbi_set_flip_vertically_on_load(true);
+    //stbi_set_flip_vertically_on_load(true);
 
     // shader skybox
     std::fstream skyboxVertSrc("Shaders/skybox.vert");
@@ -557,8 +559,17 @@ int main(void)
 
     float rot_x, rot_y, rot_z;
     rot_x = rot_y = rot_z = 0;
-    rot_z = 1.0f;
-    theta_z = -90.f;
+    rot_y = 1.0f;
+    float theta_x = 0.0f;
+    float theta_y = 0.0f;
+
+    // LIGHTING
+    DirectionLight dirLight;
+    SpotLight spotLight = SpotLight(cameraPos, cameraFront);
+
+    lightingShader.use();
+    lightingShader.setInt("material.diffuse", 0);
+    lightingShader.setInt("material.specular", 1);
 
 
     while (!glfwWindowShouldClose(window))
@@ -612,67 +623,48 @@ int main(void)
 
         glUseProgram(shaderProg);
 
-        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, -5.0f));
-        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(5.0f, 5.0f, 5.0f));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_x), glm::normalize(glm::vec3(1, 0, 0))); // spin clockwise
-        theta_x += 0.2f;
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_y), glm::normalize(glm::vec3(0, 1, 0)));
-        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(theta_z), glm::normalize(glm::vec3(0, 0, 1)));
-
-        glActiveTexture(GL_TEXTURE0);
-        GLuint tex0Address = glGetUniformLocation(shaderProg, "tex0");
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glUniform1i(tex0Address, 0);
-
-        glActiveTexture(GL_TEXTURE1);
-        GLuint tex1Address = glGetUniformLocation(shaderProg, "norm_tex");
-        glBindTexture(GL_TEXTURE_2D, texture2);
-        glUniform1i(tex1Address, 1);
-
-        glActiveTexture(GL_TEXTURE2);
-        GLuint tex2Address = glGetUniformLocation(shaderProg, "tex2");
-        glBindTexture(GL_TEXTURE_2D, texture3);
-        glUniform1i(tex2Address, 2);
-
-        GLuint lightAddress = glGetUniformLocation(shaderProg, "lightPos");
-        glUniform3fv(lightAddress, 1, glm::value_ptr(light.lightPos));
-
-        GLuint lightColorAddress = glGetUniformLocation(shaderProg, "lightColor");
-        glUniform3fv(lightColorAddress, 1, glm::value_ptr(light.lightColor));
-
-        GLuint ambientStrAddress = glGetUniformLocation(shaderProg, "ambientStr");
-        glUniform1f(ambientStrAddress, light.ambientStr);
-
-        GLuint ambientColorAddress = glGetUniformLocation(shaderProg, "ambientColor");
-        glUniform3fv(ambientColorAddress, 1, glm::value_ptr(light.ambientColor));
-
+        // remember to activate shader
+        lightingShader.use();
+        lightingShader.setVec3("viewPos", cameraPos);
+        lightingShader.setFloat("material.shininess", 32.0f);
         
-        GLuint specStrAddress = glGetUniformLocation(shaderProg, "specStr");
-        glUniform1f(specStrAddress, light.specStr);
+        // object 2 sword
+        glm::mat4 transformation_matrix = glm::mat4(1.0f);
+        view_matrix = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-        GLuint specPhongAddress = glGetUniformLocation(shaderProg, "specPhong");
-        glUniform1f(specPhongAddress, light.specPhong);
+        // transformation matrix
+        transformation_matrix = glm::translate(transformation_matrix, glm::vec3(0.0f, 0.0f, 0.0f));
+        transformation_matrix = glm::scale(transformation_matrix, glm::vec3(0.1f, 0.1f, 0.1f));
+        transformation_matrix = glm::rotate(transformation_matrix, glm::radians(90.f), glm::normalize(glm::vec3(0, 0, 1)));
 
-        unsigned int projectionLoc = glGetUniformLocation(shaderProg, "projection");
-        glUniformMatrix4fv(projectionLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(projection_matrix));
+        // directional light
+        lightingShader.setVec3("dirLight.direction", dirLight.direction);
+        lightingShader.setVec3("dirLight.ambient", dirLight.ambient);
+        lightingShader.setVec3("dirLight.diffuse", dirLight.diffuse);
+        lightingShader.setVec3("dirLight.specular", dirLight.specular);
 
-        unsigned int viewLoc = glGetUniformLocation(shaderProg, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view_matrix));
+        // spotLight
+        lightingShader.setVec3("spotLight.position", cameraPos);
+        lightingShader.setVec3("spotLight.direction", cameraFront);
+        lightingShader.setVec3("spotLight.ambient", spotLight.ambient);
+        lightingShader.setVec3("spotLight.diffuse", spotLight.diffuse);
+        lightingShader.setVec3("spotLight.specular", spotLight.specular);
+        lightingShader.setFloat("spotLight.constant", spotLight.constant);
+        lightingShader.setFloat("spotLight.linear", spotLight.linear);
+        lightingShader.setFloat("spotLight.quadratic", spotLight.quadratic);
+        lightingShader.setFloat("spotLight.cutOff", spotLight.cutOff);
+        lightingShader.setFloat("spotLight.outerCutOff", spotLight.outerCutOff);
 
-        unsigned int transformLoc = glGetUniformLocation(shaderProg, "transform");
-        glUniformMatrix4fv(transformLoc,
-            1,
-            GL_FALSE,
-            glm::value_ptr(transformation_matrix));
+        lightingShader.setMat4("transform", transformation_matrix);
+        lightingShader.setMat4("projection", projection_matrix);
+        lightingShader.setMat4("view", view_matrix);
 
-        glUseProgram(shaderProg);
+        // texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture2);
+        glBindVertexArray(VAO2);
 
-        glBindVertexArray(VAO);
-
-        glDrawArrays(GL_TRIANGLES, 0, fullVertexData.size() / 8);
+        glDrawArrays(GL_TRIANGLES, 0, fullVertexData2.size() / 6);
 
         // processInput(window, transformLoc);
 
@@ -780,5 +772,48 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     lastX = xpos;
     lastY = ypos;
 
-    persCam.ProcessMouseMovement(xoffset, yoffset);
+    float sensitivity = 0.1f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(front);
 }
+
+
+// for camera movement, taken from learnopengl.com
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    float cameraSpeed = static_cast<float>(2.5 * deltaTime);
+    /*if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        if (glfwGetTime() >= 3) {
+            models.push_back(Model3D(cameraPos, mesh_indices.size(), cameraFront));
+            glfwSetTime(0.0);
+        }
+    }
+    else {*/
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            cameraPos += cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            cameraPos -= cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    //}
+};

@@ -70,7 +70,7 @@ public:
         // delete the shaders as they're linked into our program now and no longer necessery
         glDeleteShader(vertex);
         glDeleteShader(fragment);
-
+        
     }
     // activate the shader
     // ------------------------------------------------------------------------
